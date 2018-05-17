@@ -1,0 +1,177 @@
+﻿
+@{
+    ViewBag.Title = "Index";
+}
+
+<h2>Product Search</h2>
+<div style="background:rgba(255,255,255,0.7);">
+    <input type='button' value='Add Criteria' id='addMore'>
+    <div>Select the field that you would like to search by:</div>
+    <div id="searchForm"></div>
+    <input type="button" value="Search" onclick="searchProducts()" />
+    <br /><br />
+    <div id="searchResults" style="overflow:scroll; height:400px;"></div>
+</div>
+<script>
+
+    var prodColumnInfoData = "";
+    var counter = 1;
+    $(document).ready(function () {
+
+        $("#addMore").click(function () {
+            createSearchFields(prodColumnInfoData);
+        });
+
+
+        $.getJSON('@Url.Action("GetData", "Home", new { type = "prod_column_info" })', function (result) {
+            prodColumnInfoData = result.result;
+            createSearchFields(prodColumnInfoData);
+        });
+
+    });
+   
+    function createSearchFields(Data) {
+
+        var newTextBoxDiv = $(document.createElement('div'))
+                .attr("id", 'TextBoxDiv' + counter);
+
+        var htmlElements = '<select  id="select' + counter + '" onchange="setProperties(' + counter + ')"></select>&nbsp;&nbsp;' +
+              '<input type="text" name="textbox' + counter + '" id="textbox' + counter + '" value="" >&nbsp;&nbsp;';
+        if (counter != 1){
+            htmlElements += '<input type="button" value="X" id="remove" onclick="remove(' + counter + ')">&nbsp;&nbsp;&nbsp;&nbsp;';
+        }
+        htmlElements += '<label id="instructions' + counter + '"></label>';
+
+        newTextBoxDiv.after().html(htmlElements);
+
+        newTextBoxDiv.appendTo("#searchForm");
+
+
+        if (Data.length > 0) {
+            var vItems = [];
+            vItems.push('<option value="0"></option>');
+            for (var i in Data) {
+                if (Data[i].Selected)
+                    vItems.push('<option selectedselected=selected value="' + Data[i].Value + '">' + Data[i].Text + '</option>');
+                else
+                    vItems.push('<option value="' + i + '">' + Data[i].column_name + '</option>');
+            }
+            $('#select' + counter).empty();
+            $('#select' + counter).append(vItems.join(''));
+
+        }
+        else {
+            $('#select' + counter).empty();
+        }
+        counter++;
+    }
+
+    function remove(id) {
+        $("#TextBoxDiv" + id).remove();
+    }
+    function setProperties(id) {
+        var instructions = "";
+        $("#instructions" + id).empty();
+
+        var n = $("#select" + id + " option:selected").val()
+
+        switch(prodColumnInfoData[n].data_type)
+        {
+            case "nchar": case "nvarchar":
+                instructions = "Enter text. No longer than " + prodColumnInfoData[n].max_length + " characters.";
+                $("#textbox" + id).attr('maxlength', prodColumnInfoData[n].max_length);
+                break;
+            case "int":
+                instructions = "Enter numbers only.";
+                break;
+            case "date":
+                instructions = "Enter a date in the following format. (year/month/day)";
+                break;
+            case "money":
+                instructions = "Enter a dollar amount without the '$' sign. (0.25) No longer than " + prodColumnInfoData[n].max_length + " digits.";
+                $("#textbox" + id).attr('maxlength', prodColumnInfoData[n].max_length + 1);
+                break;
+            default:
+                instructions = ""
+                break;
+        }
+        $("#instructions" + id).text(instructions);
+
+    }
+
+    function searchProducts() {
+        var i;
+        var elementNum;
+        var parameters="";
+        var field="";
+        var value="";
+        var Data = "";
+        var table = "";
+
+        $('#searchDiv').remove();
+
+        for (i = 0; i < $('input[type=text]').size() ; i++) {
+            elementNum = $('input[type=text]')[i].name.slice(7);
+            field = $("#select" + elementNum + " option:selected").text();
+            field = field.replace(" ", "_");
+            value = $('input[type=text]')[i].value;
+            if (field != "" && value != "") {
+                parameters += field + "=" + value + "&";
+            }
+            field = "";
+            value = "";
+        }
+        var newSearchDiv = $(document.createElement('div'))
+	     .attr("id", 'searchDiv');
+
+        table = '<table><tr><th>Product_ID</th><th>Description</th><th>Last_Sold</th><th>Shelf_Life</th><th>Department_ID</th>' +
+            '<th>Price</th><th>Unit</th><th>xFor</th><th>Cost</th><th>Department_Name</th></tr>';        
+
+        try{
+            $.getJSON('@Url.Action("GetProducts", "Home")?' + parameters , function (result) {
+                Data = result.result;
+                if (Data.length > 0) {
+                    for (var i in Data) {
+                        table += "<tr>";
+                        table += "<td>" + Data[i].Product_ID + "</td>";
+                        table += "<td>" + Data[i].Description + "</td>";
+                        table += "<td>" + Data[i].Last_Sold + "</td>";
+                        table += "<td>" + Data[i].Shelf_Life + " day(s)</td>";
+                        table += "<td>" + Data[i].Department_ID + "</td>";
+                        table += "<td>$" + parseFloat(Data[i].Price).toFixed(2) + "</td>";
+                        table += "<td>" + Data[i].Unit + "</td>";
+                        table += "<td>" + Data[i].xFor + "</td>";
+                        table += "<td>$" + parseFloat(Data[i].Cost).toFixed(2) + "</td>";
+                        table += "<td>" + Data[i].Department_Name + "</td>";
+                        table += "</tr>";
+                    }
+                }
+                else {
+                    table += "<tr><td colspan='10'>No records found.</td></tr>";
+                }
+                table += "</table>";
+                newSearchDiv.after().html(table);
+                newSearchDiv.appendTo("#searchResults");
+            });
+        } catch (err) {
+            table += "<tr><td colspan='10'>An error has occured. " + err.message + "</td></tr>";
+        }
+
+    }
+
+
+
+
+</script>
+<style>
+    table th {
+        padding: 5px;
+        background: #aaa;
+    }
+
+    table td {
+        padding: 5px;
+        background: #fff;
+        border: 1px solid #ddd;
+    }
+</style>  
